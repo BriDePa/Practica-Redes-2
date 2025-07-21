@@ -7,39 +7,22 @@ app.use(morgan("dev"));
 app.use(express.json());
 
 const pool = new Pool({
-  user: "postgres",
-  host: "db",
-  database: "contactos",
-  password: "password",
+  user: "root",
+  host: "localhost",
+  database: "contactos_db",
+  password: "1201",
   port: 5432,
 });
-
-async function crearTabla() {
-  try {
-    await pool.query(`
-            CREATE TABLE IF NOT EXIST contactos (
-                id SERIAL PRIMARY KEY,
-                nombre VARCHAR(100) NOT NULL,
-                email VARCHAR (100) NOT NULL,
-                mensaje TEXT NOT NULL,
-                creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            `);
-    console.log("Tabla creada o existente");
-  } catch (err) {
-    console.log("error de creacion: " + err);
-  }
-}
 
 app.get("/formulario", async (req, res) => {
   try {
     const resultado = await pool.query(
-      "SELECT * FROM contactos ORDER BY creacion DESC"
+      "SELECT * FROM contactos ORDER BY created_at DESC"
     );
     res.status(200).json(resultado.rows);
   } catch (err) {
     console.log(err);
-    res.status(500).json("error del servidor");
+    res.status(500).json("error del servidor" + err);
   }
 });
 
@@ -57,8 +40,20 @@ app.post("/formulario", async (req, res) => {
   }
 });
 
-app.put("/formulario", (req, res) => {
-  res.send("metodo put");
+app.put("/formulario/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, email, mensaje } = req.body;
+
+    const resultado = await pool.query(
+      "UPDATE contactos SET nombre = $1, email = $2, mensaje = $3 WHERE id = $4 RETURNING *",
+      [nombre, email, mensaje, id]
+    );
+  } catch (error) {
+    console.log(error);
+    res.status(500).json("Error del servidor")
+    
+  }
 });
 
 app.delete("/formulario", (req, res) => {
