@@ -12,17 +12,15 @@
             background-color: #f8f9fa;
             border-radius: 0.5rem;
         }
-        .card {
+        .contact-card {
             margin-bottom: 1rem;
-        }
-        .btn-sm {
-            margin-right: 0.5rem;
         }
     </style>
 </head>
 <body>
     <div class="container mt-5">
         <h2 class="mb-4">Formulario de Contacto</h2>
+        
         <form id="contactForm">
             <div class="mb-3">
                 <label for="nombre" class="form-label">Nombre</label>
@@ -43,117 +41,152 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Nuestro código JavaScript -->
     <script>
+        // Esperamos a que el DOM esté completamente cargado
         document.addEventListener("DOMContentLoaded", function () {
+            // URL base de nuestra API
+            const API_URL = "http://localhost:3000/formulario";
+            
+            // Elementos del DOM que vamos a usar
             const form = document.getElementById("contactForm");
             const contactosContainer = document.getElementById("contactosContainer");
 
-            function cargarContactos() {
-                fetch("http://localhost:3000/formulario")
-                    .then((res) => res.json())
-                    .then((contactos) => {
-                        contactosContainer.innerHTML = "<h3>Lista de Contactos</h3>";
-                        if (contactos.length === 0) {
-                            contactosContainer.innerHTML += "<p>No hay contactos registrados</p>";
-                            return;
-                        }
-                        
-                        contactos.forEach((c) => {
-                            const div = document.createElement("div");
-                            div.className = "card mb-2 p-3";
-                            div.innerHTML = `
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <strong>${c.nombre}</strong> (${c.email})
-                                        <p class="mt-2 mb-0">${c.mensaje}</p>
-                                    </div>
-                                    <div>
-                                        <button class="btn btn-danger btn-sm me-2" data-id="${c.id}" data-action="delete">Eliminar</button>
-                                        <button class="btn btn-warning btn-sm me-2" data-id="${c.id}" data-action="edit">Editar</button>
-                                        <button class="btn btn-info btn-sm" data-id="${c.id}" data-action="patch">Actualizar Mensaje</button>
-                                    </div>
+            // Función para cargar y mostrar los contactos desde el servidor
+            async function cargarContactos() {
+                try {
+                    // Hacemos la petición GET a la API
+                    const response = await fetch(API_URL);
+                    
+                    // Si hay un error en la respuesta, lanzamos excepción
+                    if (!response.ok) throw new Error("Error al cargar contactos");
+                    
+                    // Convertimos la respuesta a JSON
+                    const contactos = await response.json();
+                    
+                    // Limpiamos el contenedor y agregamos título
+                    contactosContainer.innerHTML = "<h3>Lista de Contactos</h3>";
+                    
+                    // Si no hay contactos, mostramos mensaje
+                    if (contactos.length === 0) {
+                        contactosContainer.innerHTML += "<p>No hay contactos registrados</p>";
+                        return;
+                    }
+                    
+                    // Por cada contacto, creamos una tarjeta
+                    contactos.forEach(contacto => {
+                        const card = document.createElement("div");
+                        card.className = "card mb-2 p-3 contact-card";
+                        card.innerHTML = `
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>${contacto.nombre}</strong> (${contacto.email})
+                                    <p class="mt-2 mb-0">${contacto.mensaje}</p>
                                 </div>
-                            `;
-                            contactosContainer.appendChild(div);
-                        });
-                    })
-                    .catch(error => {
-                        console.error("Error al cargar contactos:", error);
-                        contactosContainer.innerHTML = "<p class='text-danger'>Error al cargar los contactos</p>";
+                                <div>
+                                    <button class="btn btn-danger btn-sm me-2" data-id="${contacto.id}" data-action="delete">Eliminar</button>
+                                    <button class="btn btn-warning btn-sm me-2" data-id="${contacto.id}" data-action="edit">Editar</button>
+                                    <button class="btn btn-info btn-sm" data-id="${contacto.id}" data-action="patch">Actualizar Mensaje</button>
+                                </div>
+                            </div>
+                        `;
+                        contactosContainer.appendChild(card);
                     });
+                } catch (error) {
+                    // Si hay error, mostramos mensaje en la interfaz
+                    contactosContainer.innerHTML = "<p class='text-danger'>Error al cargar los contactos</p>";
+                    console.error("Error al cargar contactos:", error);
+                }
             }
 
-            contactosContainer.addEventListener("click", function (e) {
+            // Manejador de eventos para los botones (eliminar, editar, actualizar)
+            contactosContainer.addEventListener("click", async function (e) {
+                // Solo nos interesan los clicks en botones
                 if (e.target.tagName === "BUTTON") {
                     const id = e.target.getAttribute("data-id");
                     const action = e.target.getAttribute("data-action");
                     
-                    if (action === "delete") {
-                        if (confirm("¿Estás seguro de eliminar este contacto?")) {
-                            fetch(`http://localhost:3000/formulario/${id}`, { method: "DELETE" })
-                                .then(() => cargarContactos())
-                                .catch(error => console.error("Error al eliminar:", error));
+                    try {
+                        // Acción para eliminar contacto
+                        if (action === "delete") {
+                            if (confirm("¿Estás seguro de eliminar este contacto?")) {
+                                await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+                                cargarContactos(); // Recargamos la lista
+                            }
+                        } 
+                        // Acción para editar contacto
+                        else if (action === "edit") {
+                            const card = e.target.closest(".card");
+                            const nombre = prompt("Nuevo nombre:", card.querySelector("strong").textContent);
+                            const email = prompt("Nuevo email:", card.textContent.match(/\((.*?)\)/)[1]);
+                            const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
+                            
+                            if (nombre && email && mensaje) {
+                                await fetch(`${API_URL}/${id}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ nombre, email, mensaje })
+                                });
+                                cargarContactos(); // Recargamos la lista
+                            }
+                        } 
+                        // Acción para actualizar solo el mensaje
+                        else if (action === "patch") {
+                            const card = e.target.closest(".card");
+                            const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
+                            
+                            if (mensaje) {
+                                await fetch(`${API_URL}/${id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ mensaje })
+                                });
+                                cargarContactos(); // Recargamos la lista
+                            }
                         }
-                    } else if (action === "edit") {
-                        const card = e.target.closest(".card");
-                        const nombre = prompt("Nuevo nombre:", card.querySelector("strong").textContent);
-                        const email = prompt("Nuevo email:", card.textContent.match(/\((.*?)\)/)[1]);
-                        const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
-                        
-                        if (nombre && email && mensaje) {
-                            fetch(`http://localhost:3000/formulario/${id}`, {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ nombre, email, mensaje })
-                            })
-                            .then(() => cargarContactos())
-                            .catch(error => console.error("Error al editar:", error));
-                        }
-                    } else if (action === "patch") {
-                        const card = e.target.closest(".card");
-                        const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
-                        
-                        if (mensaje) {
-                            fetch(`http://localhost:3000/formulario/${id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ mensaje })
-                            })
-                            .then(() => cargarContactos())
-                            .catch(error => console.error("Error al actualizar:", error));
-                        }
+                    } catch (error) {
+                        console.error(`Error en acción ${action}:`, error);
+                        alert(`Error al ${action} contacto`);
                     }
                 }
             });
 
-            form.addEventListener("submit", function (e) {
-                e.preventDefault();
-                const data = {
-                    nombre: document.getElementById("nombre").value,
-                    email: document.getElementById("email").value,
-                    mensaje: document.getElementById("mensaje").value,
-                };
+            // Manejador del evento submit del formulario
+            form.addEventListener("submit", async function (e) {
+                e.preventDefault(); // Prevenimos el envío normal del formulario
                 
-                fetch("http://localhost:3000/formulario", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                })
-                .then((response) => {
+                try {
+                    // Creamos el objeto con los datos del formulario
+                    const data = {
+                        nombre: document.getElementById("nombre").value,
+                        email: document.getElementById("email").value,
+                        mensaje: document.getElementById("mensaje").value,
+                    };
+                    
+                    // Enviamos los datos al servidor
+                    const response = await fetch(API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(data),
+                    });
+                    
+                    // Verificamos si la respuesta es exitosa
                     if (!response.ok) throw new Error("Error en la respuesta del servidor");
-                    return response.json();
-                })
-                .then(() => {
+                    
+                    // Mostramos mensaje de éxito y reseteamos el formulario
                     alert("Datos enviados correctamente");
                     form.reset();
+                    
+                    // Recargamos la lista de contactos
                     cargarContactos();
-                })
-                .catch((error) => {
+                } catch (error) {
                     console.error("Error:", error);
                     alert("Error al enviar los datos: " + error.message);
-                });
+                }
             });
 
+            // Cargamos los contactos al iniciar la aplicación
             cargarContactos();
         });
     </script>

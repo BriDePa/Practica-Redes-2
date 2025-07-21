@@ -10,7 +10,7 @@ app.use(cors());
 
 const pool = new Pool({
   user: "root",
-  host: "db",
+  host: "localhost", //db para ponerlo en un contenedor
   database: "contactos_db",
   password: "1201",
   port: 5432,
@@ -61,59 +61,36 @@ app.put("/formulario/:id", async (req, res) => {
 
 app.patch("/formulario/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const fields = req.body;
+    const id = req.params.id;
+    const nuevosDatos = req.body;
 
-    if (Object.keys(fields).length === 0) {
-      return res
-        .status(400)
-        .json({ error: "No se proporcionaron campos para actualizar" });
-    }
+    const query = `
+    UPDATE contactos
+    SET nombre = $1, email = $2
+    WHERE id = $3`;
 
-    let query = "UPDATE contactos SET ";
-    const values = [];
-    let paramIndex = 1;
-    const updates = [];
+    const valores = [nuevosDatos.nombre, nuevosDatos.email, id];
 
-    for (const [key, value] of Object.entries(fields)) {
-      updates.push(`${key} = $${paramIndex}`);
-      values.push(value);
-      paramIndex++;
-    }
+    const resultado = await pool.query(query, valores);
 
-    query += updates.join(", ") + ` WHERE id = $${paramIndex} RETURNING *`;
-    values.push(id);
-
-    const result = await pool.query(query, values);
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Contacto no encontrado" });
-    }
-
-    res.status(200).json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.json(resultado.rows[0])
+  } catch (error) {
+    console.log("error al actualizar: " + error);
+    res.status(500).send("Error")
+    
   }
 });
 
-// DELETE - Eliminar un contacto
 app.delete("/formulario/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM contactos WHERE id = $1 RETURNING *",
-      [id]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Contacto no encontrado" });
-    }
-
-    res.status(200).json({ message: "Contacto eliminado correctamente" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error interno del servidor" });
+    const resultado = await pool.query("DELETE FROM contactos WHERE id = $1", [
+      id,
+    ]);
+    res.status(200).json("eliminado");
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("error del servidor");
   }
 });
 
