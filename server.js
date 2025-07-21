@@ -14,6 +14,7 @@ const pool = new Pool({
   database: "contactos_db",
   password: "1201",
   port: 5432,
+
 });
 
 app.get("/formulario", async (req, res) => {
