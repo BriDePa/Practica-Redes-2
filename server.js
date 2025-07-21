@@ -1,10 +1,12 @@
 const express = require("express");
 const morgan = require("morgan");
 const { Pool } = require("pg");
+const cors = require("cors");
 
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json());
+app.use(cors());
 
 const pool = new Pool({
   user: "root",
@@ -29,14 +31,16 @@ app.get("/formulario", async (req, res) => {
 app.post("/formulario", async (req, res) => {
   try {
     const { nombre, email, mensaje } = req.body;
-    const resultado = await pool.query(
+
+    const result = await pool.query(
       "INSERT INTO contactos (nombre, email, mensaje) VALUES ($1, $2, $3) RETURNING *",
       [nombre, email, mensaje]
     );
-    res.status(201).json(resultado.rows[0]);
+
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.log(err);
-    res.status(500).json("error del servidor");
+    console.error(err);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 });
 
@@ -51,19 +55,67 @@ app.put("/formulario/:id", async (req, res) => {
     );
   } catch (error) {
     console.log(error);
-    res.status(500).json("Error del servidor")
-    
+    res.status(500).json("Error del servidor");
   }
 });
 
-app.delete("/formulario", (req, res) => {
-  res.send("metodo delete");
+app.patch("/formulario/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = req.body;
+
+    if (Object.keys(fields).length === 0) {
+      return res
+        .status(400)
+        .json({ error: "No se proporcionaron campos para actualizar" });
+    }
+
+    let query = "UPDATE contactos SET ";
+    const values = [];
+    let paramIndex = 1;
+    const updates = [];
+
+    for (const [key, value] of Object.entries(fields)) {
+      updates.push(`${key} = $${paramIndex}`);
+      values.push(value);
+      paramIndex++;
+    }
+
+    query += updates.join(", ") + ` WHERE id = $${paramIndex} RETURNING *`;
+    values.push(id);
+
+    const result = await pool.query(query, values);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Contacto no encontrado" });
+    }
+
+    res.status(200).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
 });
 
-app.patch("/formulario", (req, res) => {
-  res.send("metodo patch");
-});
+// DELETE - Eliminar un contacto
+app.delete("/formulario/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "DELETE FROM contactos WHERE id = $1 RETURNING *",
+      [id]
+    );
 
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Contacto no encontrado" });
+    }
+
+    res.status(200).json({ message: "Contacto eliminado correctamente" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
 /* app.get("/about", (req, res) => {
   const titulo = "pagina con express";
   res.render("index.ejs", { titulo: titulo });
