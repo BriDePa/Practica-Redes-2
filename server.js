@@ -10,7 +10,7 @@ app.use(cors());
 
 const pool = new Pool({
   user: "root",
-  host: "localhost",
+  host: "db",
   database: "contactos_db",
   password: "1201",
   port: 5432,
@@ -116,23 +116,6 @@ app.delete("/formulario/:id", async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
-/* app.get("/about", (req, res) => {
-  const titulo = "pagina con express";
-  res.render("index.ejs", { titulo: titulo });
-}); */
-
-/* app.get("/formulario/:id", (req, res) => {
-  console.log(req.params.id);
-  const formEncontrado = forms.find((form) => form.id == req.params.id);
-
-  if (!formEncontrado)
-    return res.status(404).json({
-      mensaje: "no encontrado",
-    });
-  console.log(formEncontrado);
-
-  res.json(formEncontrado);
-}); */
 
 app.listen(3000);
 console.log(`servidor en puerto ${3000}`);

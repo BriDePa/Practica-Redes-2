@@ -11,7 +11,7 @@ const pool = new Pool({
 async function test() {
   try {
     const contactos = await pool.query("SELECT * FROM contactos");
-    console.log("datos: " + contactos.rows);
+    console.log("datos:", JSON.stringify(contactos.rows));
   } catch (error) {
     console.log("error de conexion: " + error);
   } finally {

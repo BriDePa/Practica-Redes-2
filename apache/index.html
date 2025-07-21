@@ -1,40 +1,161 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Formulario</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
+    <title>Formulario de Contacto</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        #contactosContainer {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+        .card {
+            margin-bottom: 1rem;
+        }
+        .btn-sm {
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
     <div class="container mt-5">
-      <h2 class="mb-4">Formulario de Contacto</h2>
-      <form id="contactForm">
-        <div class="mb-3">
-          <label for="nombre" class="form-label">Nombre</label>
-          <input type="text" class="form-control" id="nombre" required />
-        </div>
-        <div class="mb-3">
-          <label for="email" class="form-label">Email</label>
-          <input type="email" class="form-control" id="email" required />
-        </div>
-        <div class="mb-3">
-          <label for="mensaje" class="form-label">Mensaje</label>
-          <textarea
-            class="form-control"
-            id="mensaje"
-            rows="3"
-            required
-          ></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary">Enviar</button>
-      </form>
+        <h2 class="mb-4">Formulario de Contacto</h2>
+        <form id="contactForm">
+            <div class="mb-3">
+                <label for="nombre" class="form-label">Nombre</label>
+                <input type="text" class="form-control" id="nombre" required />
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" required />
+            </div>
+            <div class="mb-3">
+                <label for="mensaje" class="form-label">Mensaje</label>
+                <textarea class="form-control" id="mensaje" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Enviar</button>
+        </form>
+
+        <div id="contactosContainer"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="script.js"></script>
-  </body>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("contactForm");
+            const contactosContainer = document.getElementById("contactosContainer");
+
+            function cargarContactos() {
+                fetch("http://localhost:3000/formulario")
+                    .then((res) => res.json())
+                    .then((contactos) => {
+                        contactosContainer.innerHTML = "<h3>Lista de Contactos</h3>";
+                        if (contactos.length === 0) {
+                            contactosContainer.innerHTML += "<p>No hay contactos registrados</p>";
+                            return;
+                        }
+                        
+                        contactos.forEach((c) => {
+                            const div = document.createElement("div");
+                            div.className = "card mb-2 p-3";
+                            div.innerHTML = `
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong>${c.nombre}</strong> (${c.email})
+                                        <p class="mt-2 mb-0">${c.mensaje}</p>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-danger btn-sm me-2" data-id="${c.id}" data-action="delete">Eliminar</button>
+                                        <button class="btn btn-warning btn-sm me-2" data-id="${c.id}" data-action="edit">Editar</button>
+                                        <button class="btn btn-info btn-sm" data-id="${c.id}" data-action="patch">Actualizar Mensaje</button>
+                                    </div>
+                                </div>
+                            `;
+                            contactosContainer.appendChild(div);
+                        });
+                    })
+                    .catch(error => {
+                        console.error("Error al cargar contactos:", error);
+                        contactosContainer.innerHTML = "<p class='text-danger'>Error al cargar los contactos</p>";
+                    });
+            }
+
+            contactosContainer.addEventListener("click", function (e) {
+                if (e.target.tagName === "BUTTON") {
+                    const id = e.target.getAttribute("data-id");
+                    const action = e.target.getAttribute("data-action");
+                    
+                    if (action === "delete") {
+                        if (confirm("¿Estás seguro de eliminar este contacto?")) {
+                            fetch(`http://localhost:3000/formulario/${id}`, { method: "DELETE" })
+                                .then(() => cargarContactos())
+                                .catch(error => console.error("Error al eliminar:", error));
+                        }
+                    } else if (action === "edit") {
+                        const card = e.target.closest(".card");
+                        const nombre = prompt("Nuevo nombre:", card.querySelector("strong").textContent);
+                        const email = prompt("Nuevo email:", card.textContent.match(/\((.*?)\)/)[1]);
+                        const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
+                        
+                        if (nombre && email && mensaje) {
+                            fetch(`http://localhost:3000/formulario/${id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ nombre, email, mensaje })
+                            })
+                            .then(() => cargarContactos())
+                            .catch(error => console.error("Error al editar:", error));
+                        }
+                    } else if (action === "patch") {
+                        const card = e.target.closest(".card");
+                        const mensaje = prompt("Nuevo mensaje:", card.querySelector("p").textContent);
+                        
+                        if (mensaje) {
+                            fetch(`http://localhost:3000/formulario/${id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ mensaje })
+                            })
+                            .then(() => cargarContactos())
+                            .catch(error => console.error("Error al actualizar:", error));
+                        }
+                    }
+                }
+            });
+
+            form.addEventListener("submit", function (e) {
+                e.preventDefault();
+                const data = {
+                    nombre: document.getElementById("nombre").value,
+                    email: document.getElementById("email").value,
+                    mensaje: document.getElementById("mensaje").value,
+                };
+                
+                fetch("http://localhost:3000/formulario", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                })
+                .then((response) => {
+                    if (!response.ok) throw new Error("Error en la respuesta del servidor");
+                    return response.json();
+                })
+                .then(() => {
+                    alert("Datos enviados correctamente");
+                    form.reset();
+                    cargarContactos();
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                    alert("Error al enviar los datos: " + error.message);
+                });
+            });
+
+            cargarContactos();
+        });
+    </script>
+</body>
 </html>
